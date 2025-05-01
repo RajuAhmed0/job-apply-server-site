@@ -1,13 +1,24 @@
 const express = require("express");
 const cors = require("cors");
+const jwt = require("jsonwebtoken");
+const cookieParser = require("cookie-parser");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 require("dotenv").config();
 
 const app = express();
 const port = process.env.PORT || 4000;
 
-app.use(cors());
+
+app.use(cors(
+  {
+      origin: "http://localhost:5173", 
+      credentials: true, 
+  }
+)); 
 app.use(express.json());
+app.use(cookieParser());
+
+
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.c9gyi.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
@@ -24,6 +35,25 @@ async function run() {
     const db = client.db("job_apply");
     const allJobsColl = db.collection("alljobs");
     const applicationsColl = db.collection("applications");
+
+
+    // job token 
+    app.post("/jwt", (req, res) => {
+      const user = req.body;
+      const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: "1h" });
+    
+      res.cookie("token", token, {
+        httpOnly: true,
+        secure: false,        
+        sameSite: 'strict',
+        maxAge: 3600000
+      });
+    
+      res.send({ token, message: "Token generated and cookie set" });
+    });
+    
+
+
 
     // GET all jobs
     app.get("/allJobs", async (req, res) => {
@@ -58,15 +88,15 @@ async function run() {
     });
 
     app.get("/allJobs", async (req, res) => {
-      const email = req.query.email; 
+      const email = req.query.email;
       if (email) {
-        const jobs = await allJobsColl.find({ email }).toArray(); 
+        const jobs = await allJobsColl.find({ email }).toArray();
         return res.send(jobs);
       }
-      const result = await allJobsColl.find().toArray(); 
+      const result = await allJobsColl.find().toArray();
       res.send(result);
     });
-    
+
     // GET all applications
     app.get("/applications", async (req, res) => {
       const result = await applicationsColl.find().toArray();
@@ -113,7 +143,7 @@ async function run() {
       res.send(result);
     });
   } finally {
-   
+
   }
 }
 
